@@ -16,11 +16,9 @@ const oauth2Client = new google.auth.OAuth2(
 
 const analyticsData = google.analyticsdata('v1beta');
 
-// Set up EJS as the template engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Redirect to Google for authorization
 app.get('/auth', (req, res) => {
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
@@ -29,7 +27,6 @@ app.get('/auth', (req, res) => {
   res.redirect(authUrl);
 });
 
-// Handle the OAuth2 callback
 app.get('/oauth2callback', async (req, res) => {
   const { code } = req.query;
   const { tokens } = await oauth2Client.getToken(code);
@@ -37,7 +34,6 @@ app.get('/oauth2callback', async (req, res) => {
   res.redirect('/analytics');
 });
 
-// Fetch and display Google Analytics data using EJS template
 app.get('/analytics', async (req, res) => {
   if (!oauth2Client.credentials) {
     return res.redirect('/auth');
@@ -58,14 +54,24 @@ app.get('/analytics', async (req, res) => {
     });
 
     const rows = response.data.rows;
-    const data = {
-      sessions: rows[0]?.metricValues[0]?.value || '0',
-      users: rows[1]?.metricValues[0]?.value || '0',
-      eventCount: rows[2]?.metricValues[0]?.value || '0'
+    let data = {
+      sessions: '0',
+      users: '0',
+      eventCount: '0'
     };
+
+    if (rows && rows.length > 0) {
+      const metricValues = rows[0].metricValues;
+      if (metricValues.length > 0) {
+        data.sessions = metricValues[0]?.value || '0';
+        data.users = metricValues[1]?.value || '0';
+        data.eventCount = metricValues[2]?.value || '0';
+      }
+    }
 
     res.render('analytics', { data });
   } catch (error) {
+    console.error('Error fetching analytics data:', error);
     res.status(500).send(error.toString());
   }
 });
